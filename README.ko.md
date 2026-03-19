@@ -29,7 +29,8 @@ Mac 잠금 해제 시 내장 카메라로 사진을 촬영하고, [ntfy.sh](http
 1. [Releases](../../releases) 페이지에서 `UnlockNotifier.dmg` 다운로드
 2. DMG를 열고 `UnlockNotifier.app`을 `Applications`으로 드래그
 3. Applications에서 `UnlockNotifier` 실행
-4. 카메라 권한 허용
+4. macOS가 앱을 차단하면 터미널에서 실행: `xattr -cr /Applications/UnlockNotifier.app`
+5. 카메라 권한 허용
 5. 메뉴바의 자물쇠 아이콘 클릭 → ntfy 토픽 설정
 6. iPhone ntfy 앱에서 동일한 토픽 구독
 

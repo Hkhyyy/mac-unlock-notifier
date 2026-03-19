@@ -26,4 +26,7 @@ fi
 mkdir -p "$APP_BUNDLE/Contents/Resources"
 cp AppIcon.icns "$APP_BUNDLE/Contents/Resources/"
 
+echo "==> Signing app bundle (ad-hoc)..."
+codesign --force --deep -s - "$APP_BUNDLE"
+
 echo "==> Build complete: $APP_BUNDLE"

@@ -29,7 +29,8 @@ A macOS menu bar app that detects screen unlock events, captures a photo using t
 1. Download `UnlockNotifier.dmg` from [Releases](../../releases)
 2. Open the DMG and drag `UnlockNotifier.app` to `Applications`
 3. Launch `UnlockNotifier` from Applications
-4. Grant camera permission when prompted
+4. If macOS blocks the app, run: `xattr -cr /Applications/UnlockNotifier.app`
+5. Grant camera permission when prompted
 5. Click the lock icon in the menu bar and set your ntfy topic
 6. Subscribe to the same topic in the ntfy app on your iPhone
 
