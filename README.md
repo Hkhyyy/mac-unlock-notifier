@@ -1,5 +1,7 @@
 # UnlockNotifier
 
+[한국어](README.ko.md)
+
 A macOS menu bar app that detects screen unlock events, captures a photo using the built-in camera, and sends a push notification with the photo to your iPhone via [ntfy.sh](https://ntfy.sh).
 
 ## Features
@@ -34,7 +36,7 @@ A macOS menu bar app that detects screen unlock events, captures a photo using t
 ### Option 2: Build from source
 
 ```bash
-git clone https://github.com/user/mac-unlock-notifier.git
+git clone https://github.com/Hkhyyy/mac-unlock-notifier.git
 cd mac-unlock-notifier
 ./build.sh
 cp -R build/UnlockNotifier.app /Applications/
@@ -66,6 +68,9 @@ Click the icon for:
 
 ## Uninstall
 
+Click **Uninstall...** from the menu bar icon (removes LaunchAgent, settings, and app automatically).
+
+Or manually:
 ```bash
 launchctl unload ~/Library/LaunchAgents/com.user.unlock-notifier.plist
 rm ~/Library/LaunchAgents/com.user.unlock-notifier.plist
