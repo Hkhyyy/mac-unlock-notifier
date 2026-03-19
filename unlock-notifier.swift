@@ -7,9 +7,95 @@ private enum Settings {
     static let topic = "UNLOCK_NTFY_TOPIC"
     static let alertTitle = "UNLOCK_ALERT_TITLE"
     static let alertMessage = "UNLOCK_ALERT_MESSAGE"
+    static let passwordHash = "UNLOCK_PASSWORD_HASH"
 
     static let defaultTitle = "⚠️ 무단 접근 감지"
     static let defaultMessage = "[{hostname}] {timestamp}에 Mac 잠금이 해제되었습니다.\n본인이 아닌 경우 즉시 확인하세요."
+}
+
+// MARK: - Password
+
+import CryptoKit
+
+private enum PasswordManager {
+    static var isSet: Bool {
+        UserDefaults.standard.string(forKey: Settings.passwordHash) != nil
+    }
+
+    static func hash(_ password: String) -> String {
+        let data = Data(password.utf8)
+        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func verify(_ password: String) -> Bool {
+        guard let stored = UserDefaults.standard.string(forKey: Settings.passwordHash) else { return false }
+        return hash(password) == stored
+    }
+
+    static func save(_ password: String) {
+        UserDefaults.standard.set(hash(password), forKey: Settings.passwordHash)
+    }
+
+    static func promptVerify() -> Bool {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "비밀번호 입력"
+        alert.informativeText = "설정 변경을 위해 비밀번호를 입력하세요."
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+
+        let input = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        input.placeholderString = "비밀번호"
+        alert.accessoryView = input
+        alert.window.initialFirstResponder = input
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return false }
+        let pw = input.stringValue
+        if verify(pw) { return true }
+
+        let fail = NSAlert()
+        fail.messageText = "비밀번호가 틀렸습니다."
+        fail.alertStyle = .warning
+        fail.runModal()
+        return false
+    }
+
+    static func promptSetup() {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "비밀번호 설정"
+        alert.informativeText = "설정 보호를 위한 비밀번호를 입력하세요."
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 54))
+        let pw = NSSecureTextField(frame: NSRect(x: 0, y: 30, width: 260, height: 24))
+        pw.placeholderString = "비밀번호"
+        container.addSubview(pw)
+        let confirm = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        confirm.placeholderString = "비밀번호 확인"
+        container.addSubview(confirm)
+
+        alert.accessoryView = container
+        alert.window.initialFirstResponder = pw
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let p = pw.stringValue
+        guard !p.isEmpty, p == confirm.stringValue else {
+            let fail = NSAlert()
+            fail.messageText = "비밀번호가 일치하지 않거나 비어있습니다."
+            fail.alertStyle = .warning
+            fail.runModal()
+            return
+        }
+        save(p)
+    }
+
+    /// Returns true if authenticated (password not set, or verified)
+    static func requireAuth() -> Bool {
+        guard isSet else { return true }
+        return promptVerify()
+    }
 }
 
 private enum LaunchAgent {
@@ -216,6 +302,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         updateStatus()
+
+        if !PasswordManager.isSet {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                PasswordManager.promptSetup()
+                self.updateStatus()
+            }
+        }
+
         fputs("unlock-notifier started\n", stderr)
     }
 
@@ -264,7 +358,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         webMenuItem = menu.addActionItem("Open Web Dashboard", target: self, action: #selector(openWeb))
         menu.addItem(NSMenuItem.separator())
 
-        menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addActionItem("🔑 Password", target: self, action: #selector(handlePassword))
+        menu.addItem(NSMenuItem.separator())
+
+        menu.addItem(NSMenuItem(title: "Quit", action: #selector(handleQuit), keyEquivalent: "q"))
         menu.addActionItem("Uninstall...", target: self, action: #selector(handleUninstall))
 
         statusItem.menu = menu
@@ -280,15 +377,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateStatus() {
+        let passwordSet = PasswordManager.isSet
         let cameraOk = AVCaptureDevice.authorizationStatus(for: .video) == .authorized
         let topicOk = !topic.isEmpty
-        let ready = cameraOk && topicOk
+        let ready = passwordSet && cameraOk && topicOk
 
         setIcon(ready ? "lock.shield" : "lock.trianglebadge.exclamationmark")
-        statusMenuItem.title = ready ? "✅ Monitoring" : "⚠️ Setup required"
+
+        if !passwordSet {
+            statusMenuItem.title = "🔑 비밀번호를 먼저 설정하세요"
+        } else if ready {
+            statusMenuItem.title = "✅ Monitoring"
+        } else {
+            statusMenuItem.title = "⚠️ Setup required"
+        }
+
         cameraMenuItem.title = cameraOk ? "📷 Camera: Granted" : "📷 Camera: ⚠️ Click to allow"
+        cameraMenuItem.isEnabled = passwordSet
         topicMenuItem.title = topicOk ? "🔔 Topic: \(topic.prefix(13))..." : "🔔 Topic: ⚠️ Click to set"
-        webMenuItem.isEnabled = topicOk
+        topicMenuItem.isEnabled = passwordSet
+        webMenuItem.isEnabled = passwordSet && topicOk
     }
 
     private func setIcon(_ name: String) {
@@ -321,6 +429,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func handleTopicAction() {
+        guard PasswordManager.requireAuth() else { return }
         NSApp.activate(ignoringOtherApps: true)
 
         let alert = NSAlert()
@@ -346,6 +455,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func handleMessageAction() {
+        guard PasswordManager.requireAuth() else { return }
         NSApp.activate(ignoringOtherApps: true)
 
         let alert = NSAlert()
@@ -389,6 +499,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func handleUninstall() {
+        guard PasswordManager.requireAuth() else { return }
         NSApp.activate(ignoringOtherApps: true)
 
         let alert = NSAlert()
@@ -419,13 +530,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func testSend() { handleUnlock() }
 
     @objc private func openWeb() {
-        guard !topic.isEmpty else { return }
+        guard PasswordManager.requireAuth(), !topic.isEmpty else { return }
         NSWorkspace.shared.open(URL(string: "https://ntfy.sh/\(topic)")!)
+    }
+
+    @objc private func handlePassword() {
+        if PasswordManager.isSet {
+            guard PasswordManager.promptVerify() else { return }
+        }
+        PasswordManager.promptSetup()
+    }
+
+    @objc private func handleQuit() {
+        guard PasswordManager.requireAuth() else { return }
+        NSApp.terminate(nil)
     }
 
     // MARK: Unlock Handler
 
     private func handleUnlock() {
+        guard PasswordManager.isSet else {
+            fputs("WARNING: Password not set, skipping\n", stderr)
+            return
+        }
         guard !topic.isEmpty else {
             fputs("WARNING: Topic not set, skipping\n", stderr)
             return
