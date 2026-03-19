@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Reference template. The app generates this automatically on first launch. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.user.unlock-notifier</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Applications/UnlockNotifier.app/Contents/MacOS/UnlockNotifier</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/unlock-notifier.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/unlock-notifier.err.log</string>
+</dict>
+</plist>

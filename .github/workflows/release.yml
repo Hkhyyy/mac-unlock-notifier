@@ -1,0 +1,24 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build app bundle
+        run: ./build.sh
+
+      - name: Create DMG
+        run: ./create-dmg.sh
+
+      - name: Create GitHub Release with DMG
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/UnlockNotifier.dmg
+          generate_release_notes: true
