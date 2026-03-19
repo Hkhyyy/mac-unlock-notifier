@@ -1,4 +1,5 @@
 build/
 *.dmg
+*.iconset/
 .DS_Store
 .claude/
